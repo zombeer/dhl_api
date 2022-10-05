@@ -3,8 +3,10 @@ import json
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from fastapi_cache import caches, close_caches
-from fastapi_cache.backends.redis import CACHE_KEY, RedisCacheBackend
+from fastapi_cache import FastAPICache
+from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.decorator import cache
+from redis import asyncio as aioredis
 
 from config import ENABLE_CORS, REDIS_URL, SELF_URL
 from dhl import get_tracking_data
@@ -32,10 +34,6 @@ if ENABLE_CORS:
     )
 
 
-def redis_cache():
-    return caches.get(CACHE_KEY)
-
-
 @app.get("/", tags=["Info"], name="Redirect to API docs.")
 def serve_main():
     """
@@ -50,35 +48,16 @@ def serve_main():
     name="Track shipping number.",
     response_class=PrettyJSONResponse,
 )
-async def track_shipping(
-    payload: TrackingNumber = Depends(),
-    cache: RedisCacheBackend = Depends(redis_cache),
-):
+@cache(expire=600)
+async def track_shipping(payload: TrackingNumber = Depends()):
     """
     Primary function. Track shipping by its number.
     """
-    in_cache = await cache.get(payload.num)
-    if in_cache:
-        return json.loads(in_cache)
-
     result = get_tracking_data(payload.num)
-    if result.status_code == 200:
-        await cache.set(payload.num, result.text)
     return result.json()
 
 
 @app.on_event("startup")
-async def on_startup() -> None:
-    """
-    Some preparation.
-    """
-    rc = RedisCacheBackend(REDIS_URL)
-    caches.set(CACHE_KEY, rc)
-
-
-@app.on_event("shutdown")
-async def on_shutdown() -> None:
-    """
-    Teardown.
-    """
-    await close_caches()
+async def startup():
+    redis = aioredis.from_url(REDIS_URL, encoding="utf8", decode_responses=True)
+    FastAPICache.init(RedisBackend(redis), prefix="fastapi-cache")
