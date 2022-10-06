@@ -18,6 +18,6 @@ In terms of improvements it's possible to replace `requests` with `httpx` in ord
 Added simple `k8s` manifest so you could deploy to you cluster if you wish so. Redis runs in a separated pod without any persistance, so it's not fault tolerant, but I believe it's fine at this stage (:
 
 #### Epilogue
-So... This task turned out not that much technical, more like showing "problem solving attitude"... Hopefully you'll like it (: 
+So... This task turned out to be not that much technical but more like showing "problem solving attitude"... Hopefully you'll like it (: 
 
 Let me know, if you have any questions.
