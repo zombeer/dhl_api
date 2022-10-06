@@ -1,7 +1,17 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name:  dhl-test
+  name: dhl-test
+---
+apiVersion: v1
+data:
+  api_key: UHFOUVFxOU9yR2lVSnNqT1VMV3dWQlRVcUFBZFZLcWU=
+kind: Secret
+metadata:
+  creationTimestamp: "2022-10-06T08:37:43Z"
+  name: dhl-secret
+  namespace: dhl-test
+type: Opaque
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -20,11 +30,11 @@ spec:
       containers:
       - name: dhl-api
         env:
-        - name:  DB_URI
+        - name:  API_KEY
           valueFrom:
             secretKeyRef:
-              name:  db-uri-secret
-              key:  DB_URI
+              name:  dhl-secret
+              key:  api_key
         - name: UVICORN_HOST
           value: "0.0.0.0"
         - name: UVICORN_PORT
@@ -32,18 +42,20 @@ spec:
         - name: WEB_CONCURRENCY
           value: "7"
         - name: REMOTE_URL
-          value: "51.15.60.207"
+          value: "51.15.60.207:31700"
+        - name: REDIS_URL
+          value: "redis://dhl-redis-service:6379"
         image: ghcr.io/zombeer/dhl_test
         ports:
         - containerPort: 8000
 ---
 apiVersion: v1
-kind: Service
+kind: Service 
 metadata:
   name: dhl-api-service
   namespace: dhl-test
   labels:
-   app: dhl-test
+    app: dhl-test
 spec:
   type: NodePort
   ports:
@@ -55,3 +67,30 @@ spec:
     app: dhl-test
 status:
   loadBalancer: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: dhl-redis
+  namespace: dhl-test
+  labels:
+    app: dhl-redis
+spec:
+  containers:
+  - name: redis
+    image: redis
+    ports:
+    - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dhl-redis-service
+  namespace: dhl-test
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+    name: redis
+  selector:
+    app: dhl-redis
